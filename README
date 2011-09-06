@@ -1,0 +1,28 @@
+(*	Finder - Do Finder Selection *)
+
+(*
+
+	summary:
+
+	Call a user-defined script once for each item in the current Finder selection.
+	
+	usage:
+	
+	property DFS : (load script alias "Zoe:Users:donb:projects:applescript:Finder:Finder - Do Finder Selection.scpt")
+	DFS's DoFinderSelection(a)
+	return the result
+	
+	where argument a is a script with a DoTheItem(theItem) script taking a Finder item as argument. eg.,
+
+	script a
+		to DoTheItem(theItem)
+			...
+		end
+	end script
+
+	Utility functions:
+	
+		GetItemNameWithoutExtension(theItemOrAlias)	 
+		-- GetTheItemProps(item 1 of theFinderSelection)
+	
+*)
