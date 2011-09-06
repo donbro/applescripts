@@ -2,6 +2,8 @@ Okay.  First of all you can't view the "scpt" file (compiled applescrpt) via the
 
 Yes, its important that I have the compiled scripts in the top-level of this working tree.  Other scripts load the "scpt" versions.  The text version is only for show; its not *real* source.
 
+Credits to user rupo [https://github.com/rupa/applescript.git] for this structure (and decomilation script)
+
 So, there is a "src" directory under each directory that contains the readable (and hopefully pygmented) source.
 
 
