@@ -1,3 +1,13 @@
+Okay.  First of all you can't view the "scpt" file (compiled applescrpt) via the github HTML server.
+
+Second. Yes, its important to commit the *compiled* scripts.
+
+So, there is a "src" directory under each directory that contains the readable (and hopefully pygmented) source.
+
+
+
+
+kkk
 (*	Finder - Do Finder Selection *)
 
 (*
