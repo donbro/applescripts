@@ -1,6 +1,15 @@
 (* Finder - Do Find Contents or Container *)
 
-property DFS : (load script alias "Zoe:Users:donb:projects:applescript:Finder:Finder - Do Finder Selection.scpt")
+(*
+	Uses DoFinderSelection()
+
+
+	Usage:
+	
+*)
+
+
+property DFS : (load script alias "Genie:Users:donb:projects:applescripts:Finder:Finder - Do Finder Selection.scpt")
 
 DFS's DoFinderSelection(DoFindContents)
 
@@ -13,30 +22,54 @@ property MDF : (load script alias "Zoe:Users:donb:projects:applescript:mdfind:Do
 
 
 
-
-
 script DoFindContents
+	
+	property scriptName : "Do Find Contents"
+	property actionName : "Finding"
+	
 	to DoTheItem(theItem)
 		
-		log "DoTheItem(" & theItem & ")"
-		global myRFG
+		set itemKind to kind of theItem
 		
-		set kindOfTheItem to (kind of theItem)
-		set theItemNameNoExt to DFS's GetItemNameWithoutExtension(theItem)
+		(*  If item is a folder then there is possibility we may actually want
+			   to find items to go *inside* the folder.  Otherwise, or for any 
+			   non-folder item, we must want to find a folder to *go into*.
+		   *)
 		
-		(* If item is non-folder or is folder and we ask and we get confirm, then we do look for container. *)
+		if itemKind is "Folder" then
+			set itemName to name of theItem
+			
+			set defaultAnswer to itemName
+			set {containerText, contentItems} to {"container (folder) for ", "content items for "}
+			tell current application to ¬
+				set theAnswerList to ¬
+					choose from list {containerText & quote & itemName & quote, contentItems & itemKind & space & quote & itemName & quote} with prompt "Look for"
+			
+			if theAnswerList is false then return
+			
+			set LookForContainer to (item 1 of theAnswerList) begins with containerText
+			
+			--			set {theSearchString, LookForContainer} to ¬
+			--				AskAbout({"Container Folder", "Content Items"}, itemName)
+			
+		else -- itemKind is not "Folder"
+			
+			set itemName to DFS's GetItemNameWithoutExtension(theItem)
+			
+			set LookForContainer to true
+			
+		end if
 		
-		set {theSearchString, LookForContainer} to ¬
-			DoWeLookForContainer(kindOfTheItem, theItemNameNoExt) -- true if not folder, ask if folder.
+		set theSearchString to itemName
 		
 		(* LookForContainer *)
 		
 		if LookForContainer then
-			tell myRFG to Notify("Find Container for " & kindOfTheItem & " \"" & (name of theItem) & "\"" & ".")
+			
+			tell DFS's myRFG to Notify("Find Container for " & " \"" & (itemName) & "\"" & ".")
 			
 			set theDestinationFolder to ¬
-				DoLookForAContainer(theItem, kindOfTheItem, theSearchString)
-			
+				DoLookForAContainer(theItem, itemKind, theSearchString)
 			
 			if theDestinationFolder = {} then return {}
 			
@@ -77,77 +110,15 @@ script DoFindContents
 			
 		end if -- LookForContainer
 		
+		-- could get error here:
+		-- error "Can’t make name of {document file \"Charlize-Theron-219-1.JPG\" of folder \"Charlize Theron\" of folder \"Actress\" of disk \"Coronado\"} into type Unicode text." number -1700 from name of {«class docf» "Charlize-Theron-219-1.JPG" of «class cfol» "Charlize Theron" of «class cfol» "Actress" of «class cdis» "Coronado"} to Unicode text
+		
+		tell DFS's myRFG to Notify("Find Contents for " & itemKind & " \"" & (name of theItem) & "\"" & ".")
+		
+		
 		(* DoLookForContents *)
-		
-		(* but only if we are a folder ?!? *)
-		
-		(* but original item may have been moved to a new container folder by now? *)
-		
-		(* fall through to DoLookForContents.  DoLookForContents is always executed.
-		 (with possible recursive calls!) (to containers or (?))
-		 *)
-		
-		(* we begin with search string, not filename, because we have already bothered the user to look at the filename and decide on the search terms. *)
-		
-		set myWP to GWP's GetWordParser()
-		
-		set theWords to myWP's ParseListOfWords(theSearchString)
-		
-		set theChoices to {"[ New Search ]"} -- get us started
-		
-		set a to theItem as alias
-		set pt to POSIX path of a
-		set listOfAdditionalExclusions to {pt} -- ie, dont find any files already in (by pathname match) our folder.
-		
-		repeat while theChoices contains "[ New Search ]"
-			
-			set FindFoldersOnly to false -- any item can be a contents
-			
-			set {theMatchedString, theChoices} to DoFindOfWords(theWords, FindFoldersOnly, listOfAdditionalExclusions, theItem)
-			
-			
-			set end of theChoices to "[ New Search ]"
-			--set end of theChoices to "[ Choose/Create New Folder ]"
-			
-			tell current application to ¬
-				set theChoices to choose from list theChoices with prompt "Move files to " & (kindOfTheItem) & " \"" & (theItemNameNoExt) & "\"" with multiple selections allowed
-			
-			
-			--  {"[ New Search ]"} or {"/Users/donb/projects/story projects/Frege, Gottlob - The Foundations of Arithmetic.rtf"}
-			
-			if theChoices = false then return {} -- user cancel.
-			
-			if theChoices contains "[ New Search ]" then
-				
-				set theSearchString to GetTextFromList(theWords, space)
-				
-				set theSearchString to text returned of (display dialog "New Search?" default answer theSearchString)
-				
-				set theWords to myWP's ParseListOfWords(theSearchString)
-				
-				
-			end if
-		end repeat -- end if we still have "New Search" in our choices
-		
-		
-		(*  move routine wants finder item(s), not alias(es), not posix path(s) *)
-		
-		set z to {}
-		repeat with theFile in theChoices
-			
-			if character -1 of theFile is "*" then set theFile to text 1 through -2 of theFile
-			-- pathname for file might contain (accidentally) "*"
-			
-			try
-				set theAlias to (POSIX file theFile) as alias
-				
-				tell application "Finder" to ¬
-					set f2 to item (theAlias's name) of (theAlias's container)
-				set end of z to f2
-			end try
-			
-		end repeat
-		set theFileList to z
+		set theFileList to ¬
+			DoLookForContents(theItem, itemKind, itemName)
 		
 		-- {{{folder "Ghost in the Shell [TV]" of disk "Taos" of application "Finder"}, folder "Ghost in the Shell" of disk "Taos" of application "Finder"}}
 		
@@ -156,24 +127,100 @@ script DoFindContents
 		
 		return the result
 		
-		(*
-		 *
-		 *)
-		
-		
 		
 	end DoTheItem
 end script
 
+to DoLookForContents(theItem, itemKind, theSearchString)
+	
+	
+	(* but only if we are a folder ?!? *)
+	
+	(* but original item may have been moved to a new container folder by now? *)
+	
+	(* fall through to DoLookForContents.  DoLookForContents is always executed.
+		 (with possible recursive calls!) (to containers or (?))
+		 *)
+	
+	(* we begin with search string, not filename, because we have already bothered the user to look at the filename and decide on the search terms. *)
+	
+	set myWP to GWP's GetWordParser()
+	
+	set theWords to myWP's ParseListOfWords(theSearchString)
+	
+	set theChoices to {"[ New Search ]"} -- get us started
+	
+	set a to theItem as alias
+	set pt to POSIX path of a
+	set listOfAdditionalExclusions to {pt} -- ie, dont find any files already in (by pathname match) our folder.
+	
+	repeat while theChoices contains "[ New Search ]"
+		
+		set FindFoldersOnly to false -- any item can be a contents
+		
+		set {theMatchedString, theChoices} to DoFindOfWords(theWords, FindFoldersOnly, listOfAdditionalExclusions, theItem)
+		
+		
+		set end of theChoices to "[ New Search ]"
+		--set end of theChoices to "[ Choose/Create New Folder ]"
+		
+		tell current application to ¬
+			set theChoices to choose from list theChoices with prompt "Move files to " & (itemKind) & " \"" & (theSearchString) & "\"" with multiple selections allowed
+		
+		
+		--  {"[ New Search ]"} or {"/Users/donb/projects/story projects/Frege, Gottlob - The Foundations of Arithmetic.rtf"}
+		
+		if theChoices = false then return {} -- user cancel.
+		
+		if theChoices contains "[ New Search ]" then
+			
+			set theSearchString to GetTextFromList(theWords, space)
+			
+			set theSearchString to text returned of (display dialog "New Search?" default answer theSearchString)
+			
+			set theWords to myWP's ParseListOfWords(theSearchString)
+			
+			
+		end if
+	end repeat -- end if we still have "New Search" in our choices
+	
+	
+	(*  move routine wants finder item(s), not alias(es), not posix path(s) *)
+	
+	set z to {}
+	repeat with theFile in theChoices
+		
+		(* unfortunately, the pathname for file might accidentally contain an "*"  *)
+		
+		if character -1 of theFile is "*" then set theFile to text 1 through -2 of theFile
+		
+		try
+			set theAlias to (POSIX file theFile) as alias
+			
+			tell application "Finder" to ¬
+				set f2 to item (theAlias's name) of (theAlias's container)
+			set end of z to f2
+		end try
+		
+	end repeat
+	set theFileList to z
+	
+	return theFileList
+	
+end DoLookForContents
+
+--	end DoTheItem
+--end script
+
 (* Do Find A *Container* for Item *)
 
-to DoLookForAContainer(theItem, kindOfTheItem, theItemNameNoExt)
+to DoLookForAContainer(theItem, itemKind, itemName)
 	
 	set myWP to GWP's GetWordParser()
 	set myWP's DoSplitLetterNumber to false -- {"S06", "E07"} vs. {"S", "06", "E", "07"}
 	
 	
-	set theSearchString to theItemNameNoExt
+	set theSearchString to itemName
 	set theWords to myWP's ParseListOfWords(theSearchString)
 	
 	set FindFoldersOnly to true
@@ -188,10 +235,10 @@ to DoLookForAContainer(theItem, kindOfTheItem, theItemNameNoExt)
 		
 		set end of theChoices to "[ New Search ]"
 		set end of theChoices to "[ Choose/Create New Folder ]"
-		set end of theChoices to "[ No Container.  Look for Contents. ]"
+		if itemKind is "Folder" then set end of theChoices to "[ No Container.  Look for Contents. ]"
 		
 		tell current application to ¬
-			set theChoices to choose from list theChoices with prompt "Container for " & kindOfTheItem & " \"" & (theItemNameNoExt) & "\" ? " & return & "[ matched \"" & theMatchedString & "\" ]" -- with multiple selections allowed
+			set theChoices to choose from list theChoices with prompt "Container for " & itemKind & " \"" & (itemName) & "\" ? " & return & "[ matched \"" & theMatchedString & "\" ]" -- with multiple selections allowed
 		
 		if theChoices = false then return {} -- user cancel.
 		
@@ -262,7 +309,7 @@ end DoLookForAContainer
 
 (* Do Find A *Container* for Item *)
 
-to XDoLookForAContainer(theItem, kindOfTheItem, theItemNameNoExt)
+to XDoLookForAContainer(theItem, itemKind, itemName)
 	
 	
 	set myWP to GWP's GetWordParser()
@@ -270,7 +317,7 @@ to XDoLookForAContainer(theItem, kindOfTheItem, theItemNameNoExt)
 	set myWP's DoSplitLetterNumber to false -- {"S06", "E07"} vs. {"S", "06", "E", "07"}
 	--set myWP's theDelimiters to {"_", ".", space}		
 	
-	--		set kindOfTheItem to (kind of theItem)
+	--		set itemKind to (kind of theItem)
 	
 	set FindFoldersOnly to true
 	
@@ -288,7 +335,7 @@ to XDoLookForAContainer(theItem, kindOfTheItem, theItemNameNoExt)
 	set listOfAdditionalExclusions to {}
 	
 	
-	set theSearchString to theItemNameNoExt
+	set theSearchString to itemName
 	
 	set theWords to myWP's ParseListOfWords(theSearchString)
 	
@@ -315,12 +362,12 @@ to XDoLookForAContainer(theItem, kindOfTheItem, theItemNameNoExt)
 		
 		set end of theChoices to "[ New Search ]"
 		set end of theChoices to "[ Choose/Create New Folder ]"
-		--	if kindOfTheItem is "Folder" then ¬
+		--	if itemKind is "Folder" then ¬
 		set end of theChoices to "[ No Container.  Look for Contents. ]"
 		-- no contents if we are not a folder
 		
 		tell current application to ¬
-			set theChoices to choose from list theChoices with prompt "Container for " & kindOfTheItem & " \"" & (theItemNameNoExt) & "\" ? " & return & "[ matched \"" & theMatchedString & "\" ]" -- with multiple selections allowed
+			set theChoices to choose from list theChoices with prompt "Container for " & itemKind & " \"" & (itemName) & "\" ? " & return & "[ matched \"" & theMatchedString & "\" ]" -- with multiple selections allowed
 		
 		if theChoices = false then return {} -- user cancel.
 		
@@ -396,7 +443,7 @@ end ChooseOrCreateNewFolder
 
 
 to DoFindOfString(theSearchString, FindFoldersOnly, listOfAdditionalExclusions, theItem)
-	global myRFG
+	
 	
 	
 	set myWP to GWP's GetWordParser()
@@ -411,7 +458,7 @@ end DoFindOfString
 to DoFindOfWords(theWords, FindFoldersOnly, listOfAdditionalExclusions, theItem)
 	-- theWords ==> {{{"Doctor", "Who", "2005"}, {"Doctor", "Who"}, {"Doctor"}, {"Who"}}}
 	
-	global myRFG
+	
 	
 	set maxWordIndex to 3
 	set minWordIndex to 1 -- always go down to searching for a single word?
@@ -423,7 +470,7 @@ to DoFindOfWords(theWords, FindFoldersOnly, listOfAdditionalExclusions, theItem)
 		else
 			
 			set searchWordsAsString to GetTextFromList(theSearchWords, space)
-			tell myRFG to Notify("Searching for \"" & searchWordsAsString & "\"" & ".")
+			tell DFS's myRFG to Notify("Searching for \"" & searchWordsAsString & "\"" & ".")
 			
 			set theFoundItems to ¬
 				MDF's DoMDFindOfListofWords(theSearchWords, FindFoldersOnly, listOfAdditionalExclusions, theItem)
@@ -480,33 +527,34 @@ end GetTextFromList
 
 
 
-to DoWeLookForContainer(kindOfTheItem, theItemNameNoExt)
-	-- pass theItemNameNoExt through as new search string?  ie:just because we're not a folder
+to XDoWeLookForContainer(itemKind, itemName)
+	-- pass itemName through as new search string?  ie:just because we're not a folder
 	--		ie, just because no question was *necessary* does this mean that there should
 	-- or shouldn't be a chance to modify the search string?
 	
-	log "to DoWeLookForContainer(kindOfTheItem, theItemNameNoExt)"
+	log "to DoWeLookForContainer(itemKind, itemName)"
 	
-	if kindOfTheItem is not "Folder" then
+	if itemKind is not "Folder" then
 		set LookForContainer to true
-		set theSearchString to theItemNameNoExt
+		set theSearchString to itemName
 	else
 		-- 	kind is "Folder".  Ie, this section is only executed for folders. 
 		
 		(* container is perhaps the most often chosen, but the idea of container
 				supercedes that of contents and is thus to the left. *)
 		
-		set defaultAnswer to theItemNameNoExt
+		set defaultAnswer to itemName
 		
 		set {theSearchString, LookForContainer} to ¬
-			AskAbout({"Container Folder", "Content Items"}, theItemNameNoExt)
+			AskAbout({"Container Folder", "Content Items"}, itemName)
 		
 	end if
 	
 	return {theSearchString, LookForContainer}
 	
-end DoWeLookForContainer
+end XDoWeLookForContainer
 
+(* offers user choice via buttons but also, simultaneously, a chance to modify the search string via text box. *)
 
 to AskAbout(theButtons, defaultAnswer)
 	set {a, b} to theButtons
@@ -555,4 +603,18 @@ end AskAbout
 	[Tuesday 2011.06.21 16.52 (donb)]
 	
 	*)
+
+
+--		display dialog scriptName & return & return & actionName & space & itemKind & " " & quote & (itemName) & "\"" & "?"
+
+--		log "DoTheItem(" & theItem & ")"
+
+
+
+(* If item is non-folder or is folder and we ask and we get confirm, then we do look for container. *)
+
+--		set {theSearchString, LookForContainer} to ¬
+--			DoWeLookForContainer(kindOfTheItem, itemName) -- true if not folder, ask if folder.
+
+
 
